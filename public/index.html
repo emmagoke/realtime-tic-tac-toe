@@ -10,9 +10,24 @@
     <div class="container">
         <h1>Tic Tac Toe</h1>
 
+        <div id="lobby">
+            <button class="btn btn-primary" id="createBtn">Create Game</button>
+            <div style="margin: 20px 0;">or</div>
+            <input id="codeInput" placeholder="Enter code" maxlength="4"
+                style="padding:12px;border-radius:25px;border:none;text-transform:uppercase;text-align:center;">
+            <button class="btn btn-secondary" id="joinBtn">Join</button>
+        </div>
+
+       
+
+        <div id="gameArea" style="display:none;">
+            <div id="roomInfo" style="margin-bottom:15px;color:#aaa;"></div>
+
+            <!-- Old Code -->
         <div class="game-info">
             <div class="current-player" id="currentPlayer">Player x's Turn</div>
         </div>
+
 
         <div class="game-board" id="gameBoard">
             <button class="ceil" data-index="0"></button>
@@ -50,8 +65,11 @@
                 <div class="score-value" id="scoreO">0</div>
             </div>
         </div>
+            <!-- Old Code -->
+        </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
