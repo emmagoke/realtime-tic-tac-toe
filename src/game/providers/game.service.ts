@@ -147,15 +147,17 @@ export class GameService {
         )
     }
 
-    rematch(playerId: string): Game {
-        const game = this.getGameOrThrow(playerId);
-        if (game.status !== 'finished') throw new WsException('Game is not finished');
-        game.board = Array(9).fill('');
-        game.currentTurn = 'X';
-        game.status = 'playing';
-        game.winner = null;
-        game.winningLine = null;
-        return game;
+    rematch(code: string, playerId: string): Promise<GameState> {
+        return this.mutate(
+            code, playerId, (game) => {
+                if (game.status !== 'finished') throw new WsException('Game is not finished');
+                game.board = Array(9).fill('');
+                game.currentTurn = 'X';
+                game.status = 'playing';
+                game.winner = null;
+                game.winningLine = null;
+            }
+        )
     }
 
     resetScores(playerId: string): Game {
