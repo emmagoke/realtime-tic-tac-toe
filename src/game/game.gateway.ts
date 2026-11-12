@@ -7,10 +7,23 @@ import { GameService } from './providers/game.service';
 import { Game } from './types/game.types.old';
 
 @WebSocketGateway({ cors: { origin: '*' } })
-export class GameGateway implements OnGatewayDisconnect {
+export class GameGateway implements OnGatewayConnection {
     @WebSocketServer() server!: Server;
 
     constructor(private readonly gameService: GameService) {}
+
+    async handleConnection(client: Socket) {
+        try {
+            const player = await this.gameService.identify(client.handshake.auth?.playerId);
+            client.data.playerId = player.id;
+            client.emit('identity', { playerId: player.id });
+
+            const active = await this.gameService.findActiveGame(player.id);
+            if (active) this.enter(client, active.state, active.mark);
+        } catch (error) {
+            client.disconnect();
+        }
+    }
 
     @SubscribeMessage('createGame')
     handleCreate(@ConnectedSocket() client: Socket) {
