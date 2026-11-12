@@ -202,6 +202,24 @@ export class GameService {
         return this.toState(game, players)
     }
 
+    private mutate (
+        code: string,
+        playerId: string,
+        fn: (game: Game, me: GamePlayer) => void,
+    ): Promise<GameState> {
+        return this.dataSource.transaction(
+            async (m) => {
+                const { game, players } = await this.load(m, code, true);
+                const me = players.find((p) => p.playerId === playerId);
+                if (!me) throw new WsException('You are not in this game');
+
+                fn(game, me);
+                await m.save(game);
+                return this.toState(game, players);
+            }
+        )
+    }
+
     private getGameOrThrow(playerId: string): Game {
         const gameId = this.playerToGame.get(playerId);
         const game = gameId && this.games.get(gameId);
