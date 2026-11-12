@@ -39,6 +39,25 @@ export class GameService {
         return this.players.save(this.players.create())
     }
 
+    //#TODO: Can a player have more than One active game
+    /** Most recent game this player belongs to (for rejoining after refresh). */
+    async findActiveGame (playerId: string): Promise <{
+        state: GameState; mark: Mark} | null> {
+            const gamePlayer= await this.gamePlayers
+                .createQueryBuilder("gp")
+                .innerJoinAndSelect("gp.game", "g")
+                .where("gp.playerId = :playerId", {playerId})
+                .orderBy("g.createdAt", "DESC")
+                .getOne()
+            
+            if (!gamePlayer) return null;
+
+            return {
+                state: await this.getState(gamePlayer.game.code),
+                mark: gamePlayer.mark
+            }
+        }
+
     createGame(playerId: string): { game: Game; mark: Mark } {
         this.removePlayer(playerId); // leave any previous game first
 
@@ -144,6 +163,14 @@ export class GameService {
         game.winner = null;
         game.winningLine = null;
         return game;
+    }
+
+    async getState(code: string): Promise<GameState> {
+        const { game, players } = await this.load(
+            this.dataSource.manager, code
+        )
+
+        return this.toState(game, players)
     }
 
     private getGameOrThrow(playerId: string): Game {
