@@ -58,22 +58,28 @@ export class GameService {
             }
         }
 
-    createGame(playerId: string): { game: Game; mark: Mark } {
-        this.removePlayer(playerId); // leave any previous game first
+    async createGame(playerId: string): Promise<{ state: GameState; mark: Mark }> {
+        const code = await this.dataSource.transaction(
+            async (m) => {
+                const game = await m.save(
+                    m.create(
+                        Game, {code: await this.generateCode(m)}
+                    )
+                );
+                await m.save(
+                    m.create(
+                        GamePlayer, { gameId: game.id, playerId, mark: 'X' }
+                    )
+                );
 
-        const game: Game = {
-        id: this.generateCode(),
-        board: Array(9).fill(''),
-        players: [{ id: playerId, mark: 'X' }],
-        currentTurn: 'X',
-        status: 'waiting',
-        winner: null,
-        winningLine: null,
-        scores: { X: 0, O: 0, tie: 0 },
+                return game.code;
+            }
+        )
+
+        return { 
+            state: await this.getState(code),
+            mark: 'X'
         };
-        this.games.set(game.id, game);
-        this.playerToGame.set(playerId, game.id);
-        return { game, mark: 'X' };
     }
 
     joinGame(gameId: string, playerId: string): { game: Game; mark: Mark } {
