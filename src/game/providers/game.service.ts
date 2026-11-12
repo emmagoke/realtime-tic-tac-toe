@@ -2,9 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { WsException } from '@nestjs/websockets';
 import { GameState, Mark } from '../types/game.types';
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
 import { Player } from "src/players/enitities/player.entity";
 import { GamePlayer } from "../entities/game-player.entity";
+import { Game } from '../entities/game.entity';
 
 const WIN_PATTERNS = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -24,6 +25,7 @@ export class GameService {
         private readonly players: Repository<Player>,
         @InjectRepository(GamePlayer)
         private readonly gamePlayers: Repository<GamePlayer>,
+        private readonly dataSource: DataSource,
 
     ) {}
 
@@ -170,29 +172,6 @@ export class GameService {
         )
     }
 
-    /** Called on disconnect or when a player leaves. Returns the game if it still exists. */
-    removePlayer(playerId: string): Game | null {
-        const gameId = this.playerToGame.get(playerId);
-        if (!gameId) return null;
-        this.playerToGame.delete(playerId);
-
-        const game = this.games.get(gameId);
-        if (!game) return null;
-
-        game.players = game.players.filter((p) => p.id !== playerId);
-        if (game.players.length === 0) {
-        this.games.delete(gameId);
-        return null;
-        }
-
-        // The remaining player waits for a new opponent; restart the round
-        game.status = 'waiting';
-        game.board = Array(9).fill('');
-        game.currentTurn = 'X';
-        game.winner = null;
-        game.winningLine = null;
-        return game;
-    }
 
     async getState(code: string): Promise<GameState> {
         const { game, players } = await this.load(
@@ -248,4 +227,16 @@ export class GameService {
         }
     }
 
+    private toState(game: Game, players: GamePlayer[]): GameState  {
+        return {
+            id: game.code,
+            board: game.board,
+            players: players.map((p) => ({ mark: p.mark })),
+            currentTurn: game.currentTurn,
+            status: game.status,
+            winner: game.winner,
+            winningLine: game.winningLine,
+            scores: { X: game.scoreX, O: game.scoreO, tie: game.scoreTie },   
+        }
+    }
 }
