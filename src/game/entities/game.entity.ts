@@ -2,7 +2,7 @@ import {
     Column, CreateDateColumn, Entity, PrimaryGeneratedColumn,
     UpdateDateColumn
 } from 'typeorm';
-import type { Cell, GameStatus, Mark } from '../game.types';
+import type { Cell, GameStatus, Mark } from '../types/game.types';
 
 @Entity('games')
 export class Game {
