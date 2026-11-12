@@ -67,7 +67,25 @@ export class GameGateway implements OnGatewayConnection {
         if (game) this.broadcast(game);
     }
 
-    private broadcast(game: Game) {
-        this.server.to(game.id).emit('gameState', game);
+    private enter(client: Socket, state: GameState, mark: Mark) {
+        if (client.data.gameCode && client.data.gameCode !== state.id) {
+            client.leave(client.data.gameCode);
+        }
+        client.data.gameCode = state.id;
+        client.join(state.id);
+        client.emit('joined', { gameId: state.id, mark });
+        this.broadcast(state);
+    }
+
+    private ctx(client: Socket) {
+        if (!client.data.gameCode) throw new WsException('You are not in a game');
+        return { 
+            playerId: client.data.playerId as string,
+            code: client.data.gameCode as string 
+        };
+    }
+
+    private broadcast(state: GameState) {
+        this.server.to(state.id).emit('gameState', state);
     }
 }
