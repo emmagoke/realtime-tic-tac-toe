@@ -200,11 +200,11 @@ export class GameService {
         return {game, players}
     }
 
-    private generateCode(): string {
-        let code: string;
-        do {
-        code = Math.random().toString(36).substring(2, 6).toUpperCase();
-        } while (this.games.has(code));
-        return code;
+    private async generateCode(m: EntityManager): Promise<string>  {
+        for (;;) {
+            const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+            if (code.length === 4 && !(await m.exists(Game, { where: { code } }))) return code;
+        }
     }
+
 }
