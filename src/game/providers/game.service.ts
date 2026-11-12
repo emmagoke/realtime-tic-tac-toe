@@ -160,10 +160,14 @@ export class GameService {
         )
     }
 
-    resetScores(playerId: string): Game {
-        const game = this.getGameOrThrow(playerId);
-        game.scores = { X: 0, O: 0, tie: 0 };
-        return game;
+    resetScores(code: string, playerId: string): Promise<GameState> {
+        return this.mutate(
+            code, playerId, (game) => {
+                game.scoreX = 0;
+                game.scoreO = 0;
+                game.scoreTie = 0;
+            }
+        )
     }
 
     /** Called on disconnect or when a player leaves. Returns the game if it still exists. */
