@@ -111,37 +111,40 @@ export class GameService {
         )
     }
 
-    makeMove(playerId: string, index: number): Game {
-        const game = this.getGameOrThrow(playerId);
-        const player = game.players.find((p) => p.id === playerId)!;
+    makeMove(code: string, playerId: string, index: number): Promise<GameState> {
+        return this.mutate(
+            code, playerId, (game, me) => {
+                if (game.status !== 'playing') throw new WsException('Game is not active');
+                if (me.mark !== game.currentTurn) throw new WsException('Not your turn');
+                if (!Number.isInteger(index) || index < 0 || index > 8) {
+                    throw new WsException('Invalid cell');
+                }
 
-        if (game.status !== 'playing') throw new WsException('Game is not active');
-        if (player.mark !== game.currentTurn) throw new WsException('Not your turn');
-        if (!Number.isInteger(index) || index < 0 || index > 8) {
-        throw new WsException('Invalid cell');
-        }
-        if (game.board[index] !== '') throw new WsException('Cell already taken');
+                if (game.board[index] !== '') throw new WsException('Cell already taken');
 
-        game.board[index] = player.mark;
+                const board = [...game.board];
+                board[index] = me.mark;
+                game.board = board;
 
-        const line = WIN_PATTERNS.find(
-        ([a, b, c]) =>
-            game.board[a] && game.board[a] === game.board[b] && game.board[a] === game.board[c],
-        );
+                const line = WIN_PATTERNS.find(
+                    ([a, b, c]) => board[a] && board[a] === board[b] && board[a] === board[c],
+                );
 
-        if (line) {
-        game.status = 'finished';
-        game.winner = player.mark;
-        game.winningLine = line;
-        game.scores[player.mark]++;
-        } else if (game.board.every((c) => c !== '')) {
-        game.status = 'finished';
-        game.winner = 'tie';
-        game.scores.tie++;
-        } else {
-        game.currentTurn = player.mark === 'X' ? 'O' : 'X';
-        }
-        return game;
+                if (line) {
+                    game.status = 'finished';
+                    game.winner = me.mark;
+                    game.winningLine = line;
+                    if (me.mark === 'X') game.scoreX++;
+                    else game.scoreO++;
+                } else if (board.every((c) => c !== '')) {
+                    game.status = 'finished';
+                    game.winner = 'tie';
+                    game.scoreTie++;
+                } else {
+                    game.currentTurn = me.mark === 'X' ? 'O' : 'X';
+                }
+            }
+        )
     }
 
     rematch(playerId: string): Game {
