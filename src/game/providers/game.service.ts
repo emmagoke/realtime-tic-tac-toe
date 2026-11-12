@@ -180,6 +180,20 @@ export class GameService {
         return game;
     }
 
+    private async load (m: EntityManager, code: string, lock = false) {
+        const game = await m.findOne(Game, {
+            where: {code},
+            lock: lock ? { mode: 'pessimistic_write' as const} : undefined
+        })
+
+        if (!game) throw new WsException('Game not found');
+        const players = await m.find(GamePlayer, {
+            where: { gameId: game.id}
+        });
+
+        return {game, players}
+    }
+
     private generateCode(): string {
         let code: string;
         do {
