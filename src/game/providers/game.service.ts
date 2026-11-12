@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { WsException } from '@nestjs/websockets';
-import { Game, Mark } from '../game.types';
+import { GameState, Mark } from '../types/game.types';
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Player } from "src/players/enitities/player.entity";
+import { GamePlayer } from "../entities/game-player.entity";
 
 const WIN_PATTERNS = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -8,10 +12,32 @@ const WIN_PATTERNS = [
   [0, 4, 8], [2, 4, 6],
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class GameService {
     private games = new Map<string, Game>();
     private playerToGame = new Map<string, string>(); // socketId -> gameId
+
+    constructor (
+        @InjectRepository(Player)
+        private readonly players: Repository<Player>,
+        @InjectRepository(GamePlayer)
+        private readonly gamePlayers: Repository<GamePlayer>,
+
+    ) {}
+
+    //#TODO: there is a bug, if I keep identitfy it keep creating players
+    /** Find the player by id, or create a new one. */
+    async identify (playerId?: string) : Promise<Player> {
+        if (playerId && UUID_RE.test(playerId)) {
+            const existing = await this.players.findOneBy(
+                {id: playerId}
+            )
+            if (existing) return existing;
+        }
+        return this.players.save(this.players.create())
+    }
 
     createGame(playerId: string): { game: Game; mark: Mark } {
         this.removePlayer(playerId); // leave any previous game first
