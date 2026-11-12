@@ -82,19 +82,33 @@ export class GameService {
         };
     }
 
-    joinGame(gameId: string, playerId: string): { game: Game; mark: Mark } {
-        const game = this.games.get(gameId.toUpperCase());
-        if (!game) throw new WsException('Game not found');
-        if (game.players.length >= 2) throw new WsException('Game is full');
-        if (game.players.some((p) => p.id === playerId)) {
-        throw new WsException('You are already in this game');
-        }
+     async joinGame(rawCode: string, playerId: string): Promise<{ state: GameState; mark: Mark }> {
+        const code = (rawCode ?? '').trim().toUpperCase();
 
-        this.removePlayer(playerId);
-        game.players.push({ id: playerId, mark: 'O' });
-        game.status = 'playing';
-        this.playerToGame.set(playerId, game.id);
-        return { game, mark: 'O' };
+        return this.dataSource.transaction (
+            async (m) => {
+                const { game, players } = await this.load(m, code, true);
+
+                const existing = players.find((p) => p.playerId === playerId);
+                if (existing) return { state: this.toState(game, players), mark: existing.mark }; // rejoin
+                
+                if (players.length >= 2) throw new WsException('Game is full');
+
+                const mark: Mark = players[0].mark === 'X' ? 'O' : 'X';
+                const gp = await m.save(
+                    m.create(
+                        GamePlayer, { gameId: game.id, playerId, mark }
+                    )
+                );
+                players.push(gp);
+                game.status = 'playing';
+                await m.save(game);
+                return {
+                    state: this.toState(game, players),
+                    mark
+                };
+            }
+        )
     }
 
     makeMove(playerId: string, index: number): Game {
