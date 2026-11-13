@@ -21,7 +21,8 @@ import { PlayersModule } from './players/players.module';
           config.get('DB_SSL') === 'true',
         ),
     }),
-    PlayersModule
+    PlayersModule,
+    AuthModule
   ],
   controllers: [AppController],
   providers: [AppService],
