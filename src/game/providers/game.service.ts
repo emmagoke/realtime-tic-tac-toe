@@ -65,7 +65,10 @@ export class GameService {
             async (m) => {
                 const game = await m.save(
                     m.create(
-                        Game, {code: await this.generateCode(m)}
+                        Game, {
+                            code: await this.generateCode(m),
+                            board: Array(9).fill('') as Cell[],
+                        }
                     )
                 );
                 await m.save(
