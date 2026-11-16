@@ -12,7 +12,8 @@ export class Game {
   @Column({ type: 'varchar', length: 4, unique: true })
   code: string;
 
-  @Column({ type: 'jsonb', default: () => `'["","","","","","","","",""]'` })
+  // @Column({ type: 'jsonb', default: () => `'["","","","","","","","",""]'` })
+  @Column({ type: 'jsonb'})
   board: Cell[];
 
   @Column({ type: 'varchar', length: 1, default: 'X' })
