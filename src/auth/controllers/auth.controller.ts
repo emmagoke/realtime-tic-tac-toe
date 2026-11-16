@@ -6,4 +6,9 @@ export class AuthController {
     constructor (
         private readonly authService: AuthService
     ) {}
+
+    @Post('guest')
+    createGuest () {
+        return this.authService.createGuest();
+    }
 }
