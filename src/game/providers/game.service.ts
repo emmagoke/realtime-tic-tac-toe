@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { WsException } from '@nestjs/websockets';
 import type { Cell, GameState, Mark } from '../types/game.types';
 import { InjectRepository } from "@nestjs/typeorm";
@@ -182,6 +182,36 @@ export class GameService {
         return this.mutate(code, playerId, (game) => {
             game.status = 'abandoned';
         });
+    }
+
+    async getReplay(rawCode: string) {
+        const m = this.dataSource.manager;
+        const game = await m.findOneBy(
+            Game, { code: rawCode.trim().toUpperCase() }
+        );
+        if (!game) throw new NotFoundException('Game not found');
+
+        const players = await m.find(
+            GamePlayer, { where: { gameId: game.id } }
+        );
+        const rounds = await m.find(
+            Round, { where: { gameId: game.id }, order: { roundNumber: 'ASC' } });
+        const moves = rounds.length
+        ? await m.find(Move, { where: { roundId: In(rounds.map((r) => r.id)) }, order: { moveNumber: 'ASC' } })
+        : [];
+
+        return {
+            code: game.code,
+            players: players.map((p) => ({ mark: p.mark })),
+            rounds: rounds.map((r) => ({
+                roundNumber: r.roundNumber,
+                winner: r.isTie ? 'tie' : (players.find((p) => p.playerId === r.winnerId)?.mark ?? null),
+                winningLine: r.winningLine,
+                moves: moves
+                .filter((mv) => mv.roundId === r.id)
+                .map((mv) => ({ moveNumber: mv.moveNumber, mark: mv.mark, cellIndex: mv.cellIndex })),
+            })),
+        };
     }
 
 
