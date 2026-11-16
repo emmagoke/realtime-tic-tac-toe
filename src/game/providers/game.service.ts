@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { WsException } from '@nestjs/websockets';
-import { GameState, Mark } from '../types/game.types';
+import type { Cell, GameState, Mark } from '../types/game.types';
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, EntityManager, Repository } from "typeorm";
+import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { Player } from "src/players/enitities/player.entity";
 import { GamePlayer } from "../entities/game-player.entity";
 import { Game } from '../entities/game.entity';
+import { Round } from "../entities/round.entity";
+import { Move } from "../entities/move.entity";
 
 const WIN_PATTERNS = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
