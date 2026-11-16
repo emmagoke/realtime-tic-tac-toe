@@ -172,6 +172,13 @@ export class GameService {
         )
     }
 
+    /** Deliberate leave = abandon. Accidental disconnects never call this. */
+    leaveGame(code: string, playerId: string): Promise<GameState> {
+        return this.mutate(code, playerId, (game) => {
+            game.status = 'abandoned';
+        });
+    }
+
 
     async getState(code: string): Promise<GameState> {
         const { game, players } = await this.load(
