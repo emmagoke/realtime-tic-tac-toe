@@ -223,6 +223,14 @@ export class GameService {
         return this.toState(game, players)
     }
 
+    private async currentRound(m: EntityManager, gameId: string): Promise<Round> {
+        const round = await m.findOne(
+            Round, { where: { gameId }, order: { roundNumber: 'DESC' } }
+        );
+        if (!round) throw new WsException('No active round');
+        return round;
+    }
+
     private mutate (
         code: string,
         playerId: string,
