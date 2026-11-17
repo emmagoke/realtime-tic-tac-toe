@@ -165,6 +165,7 @@ const roomInfo = document.getElementById('roomInfo');
 const createBtn = document.getElementById('createBtn');
 const joinBtn = document.getElementById('joinBtn');
 const codeInput = document.getElementById('codeInput');
+const leaveBtn = document.getElementById('leaveBtn');
 
 // Socket events
 socket.on('joined', ({ gameId, mark }) => {
