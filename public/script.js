@@ -133,9 +133,19 @@
 
 // document.addEventListener('DOMContentLoaded', initializeGame)
 
+const profile = new URLSearchParams(location.search).get('as') || 'default';
+const storageKey = `playerId:${profile}`;
 
+console.log(`storageKey Key: ${storageKey}`)
+console.log(`storageKey value: ${localStorage.getItem(storageKey)}`)
 
-const socket = io();
+const socket = io({ 
+  // auth: (cb) => cb({ playerId: localStorage.getItem(storageKey) }),
+   auth: (cb) => {
+    sentId = localStorage.getItem(storageKey);
+    cb({ playerId: sentId });
+  },
+});
 
 let mySymbol = null;
 let game = null;
