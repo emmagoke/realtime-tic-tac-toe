@@ -14,7 +14,17 @@ export class GameGateway implements OnGatewayConnection {
 
     async handleConnection(client: Socket) {
         try {
-            const player = await this.gameService.identify(client.handshake.auth?.playerId);
+            const sent = client.handshake.auth?.playerId;
+            const player = await this.gameService.identify(sent);
+            console.log(`PlayerId on handle connection:  ${sent}`)
+
+             console.log(
+                `socket ${client.id} sent=${sent} resolved=${player.id} ` +
+                    `${sent === player.id ? 'existing' : 'REPLACED'} ` +
+                    `referer=${client.handshake.headers.referer ?? client.handshake.headers.origin} ` +
+                    `ua=${client.handshake.headers['user-agent']?.slice(0, 40)}`,
+            );
+
             client.data.playerId = player.id;
             client.emit('identity', { playerId: player.id });
 
