@@ -67,7 +67,11 @@ erDiagram
     jsonb board
     string status
     string currentTurn
-    timestamptz turnExpiresAt
+    int scoreX
+    int scoreO
+    int scoreTie
+    timestamptz createdAt
+    timestamptz updatedAt
   }
   GAME_PLAYERS {
     uuid gameId FK
