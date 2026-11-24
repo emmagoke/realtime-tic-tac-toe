@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { WsException } from '@nestjs/websockets';
-import type { Cell, GameState, Mark } from '../types/game.types';
+import type { Cell, GameState, Mark, MutationCtx } from '../types/game.types';
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { Player } from "src/players/enitities/player.entity";
@@ -51,6 +51,7 @@ export class GameService {
                 .createQueryBuilder("gp")
                 .innerJoinAndSelect("gp.game", "g")
                 .where("gp.playerId = :playerId", {playerId})
+                .andWhere('g.status != :abandoned', { abandoned: 'abandoned' })
                 .orderBy("g.createdAt", "DESC")
                 .getOne()
             
@@ -95,6 +96,8 @@ export class GameService {
         return this.dataSource.transaction (
             async (m) => {
                 const { game, players } = await this.load(m, code, true);
+                //#TODO: Not sure if this condition should existing
+                if (game.status === 'abandoned') throw new WsException('This game has ended');
 
                 const existing = players.find((p) => p.playerId === playerId);
                 if (existing) return { state: this.toState(game, players), mark: existing.mark }; // rejoin
@@ -110,6 +113,7 @@ export class GameService {
                 players.push(gp);
                 game.status = 'playing';
                 await m.save(game);
+                await this.startRound(m, game.id);
                 return {
                     state: this.toState(game, players),
                     mark
@@ -184,20 +188,23 @@ export class GameService {
 
     rematch(code: string, playerId: string): Promise<GameState> {
         return this.mutate(
-            code, playerId, (game) => {
+            code, playerId, async ({game, m}) => {
                 if (game.status !== 'finished') throw new WsException('Game is not finished');
-                game.board = Array(9).fill('');
+                game.board = Array(9).fill('') as Cell[];
                 game.currentTurn = 'X';
                 game.status = 'playing';
                 game.winner = null;
+                game.isTie = false;
                 game.winningLine = null;
+                await this.startRound(m, game.id);
+                console.log(`Game id: ${game.id}`)
             }
         )
     }
 
     resetScores(code: string, playerId: string): Promise<GameState> {
         return this.mutate(
-            code, playerId, (game) => {
+            code, playerId, ({game}) => {
                 game.scoreX = 0;
                 game.scoreO = 0;
                 game.scoreTie = 0;
@@ -207,7 +214,7 @@ export class GameService {
 
     /** Deliberate leave = abandon. Accidental disconnects never call this. */
     leaveGame(code: string, playerId: string): Promise<GameState> {
-        return this.mutate(code, playerId, (game) => {
+        return this.mutate(code, playerId, ({game}) => {
             game.status = 'abandoned';
         });
     }
@@ -290,7 +297,7 @@ export class GameService {
     private mutate (
         code: string,
         playerId: string,
-        fn: (game: Game, me: GamePlayer) => void,
+        fn: (ctx: MutationCtx) => Promise<void> | void,
     ): Promise<GameState> {
         return this.dataSource.transaction(
             async (m) => {
@@ -298,7 +305,7 @@ export class GameService {
                 const me = players.find((p) => p.playerId === playerId);
                 if (!me) throw new WsException('You are not in this game');
 
-                fn(game, me);
+                await fn({game, me, m});
                 await m.save(game);
                 return this.toState(game, players);
             }
