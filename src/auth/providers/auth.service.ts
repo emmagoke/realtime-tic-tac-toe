@@ -12,6 +12,12 @@ export class AuthService {
         private readonly players: Repository<Player>,
     ) {}
 
+    async createGuest(): Promise<{ token: string; playerId: string }> {
+        const player = await this.players.save(this.players.create());
+        const token = await this.jwtService.signAsync({ sub: player.id });
+        return { token, playerId: player.id };
+    }
+
     /** Returns the player id, or throws if the token is missing, forged, expired or unknown. */
     async verify(token?: string): Promise<string> {
         if (!token) throw new UnauthorizedException();
