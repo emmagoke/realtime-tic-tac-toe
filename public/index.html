@@ -16,8 +16,37 @@
             <input id="codeInput" placeholder="Enter code" maxlength="4"
                 style="padding:12px;border-radius:25px;border:none;text-transform:uppercase;text-align:center;">
             <button class="btn btn-secondary" id="joinBtn">Join</button>
+
+            <div style="margin-top:30px; text-align:left;">
+                <h3 style="margin-bottom:10px;">My games</h3>
+                <div id="historyList"></div>
+            </div>
         </div>
 
+
+        <div id="replayArea" style="display:none;">
+            <div id="replayInfo" style="margin-bottom:15px;color:#aaa;"></div>
+            <div class="game-board" id="replayBoard" style="pointer-events:none;">
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+                <button class="ceil" disabled></button>
+            </div>
+            <div class="controls">
+                <button class="btn btn-secondary" id="replayPrev">Prev</button>
+                <button class="btn btn-primary" id="replayPlay">Play</button>
+                <button class="btn btn-secondary" id="replayNext">Next</button>
+            </div>
+            <div class="controls">
+                <select id="replayRound" style="padding:10px;border-radius:25px;"></select>
+                <button class="btn btn-secondary" id="replayClose">Close</button>
+            </div>
+        </div>
        
 
         <div id="gameArea" style="display:none;">
@@ -46,6 +75,7 @@
             <div class="controls">
                 <button class="btn btn-primary" id="resetBtn">New Game</button>
                 <button class="btn btn-secondary" id="resetScoreBtn">Reset Score</button>
+                <button class="btn btn-secondary" id="leaveBtn">Leave</button>
 
             </div>
 
