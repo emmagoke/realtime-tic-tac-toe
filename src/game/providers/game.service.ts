@@ -214,6 +214,25 @@ export class GameService {
         };
     }
 
+    /** The caller's most recent games, for the "My games" list. */
+    async listMyGames(playerId: string) {
+        const rows = await this.gamePlayers
+            .createQueryBuilder('gp')
+            .innerJoinAndSelect('gp.game', 'g')
+            .where('gp.playerId = :playerId', { playerId })
+            .orderBy('g.createdAt', 'DESC')
+            .take(20)
+            .getMany();
+
+        return rows.map((gp) => ({
+            code: gp.game.code,
+            status: gp.game.status,
+            myMark: gp.mark,
+            scores: { X: gp.game.scoreX, O: gp.game.scoreO, tie: gp.game.scoreTie },
+            createdAt: gp.game.createdAt,
+        }));
+    }
+
 
     async getState(code: string): Promise<GameState> {
         const { game, players } = await this.load(
