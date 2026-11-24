@@ -25,6 +25,9 @@ export class Game {
   @Column({ type: 'varchar', nullable: true })
   winner: Mark | 'tie' | null;
 
+  @Column({ type: 'boolean', default: false })
+  isTie: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   winningLine: number[] | null;
 
