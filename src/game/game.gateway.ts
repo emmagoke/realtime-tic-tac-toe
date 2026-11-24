@@ -1,81 +1,123 @@
 import {
-  ConnectedSocket, MessageBody, OnGatewayDisconnect,
+    BaseWsExceptionFilter,
+  ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage, WebSocketGateway, WebSocketServer,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './providers/game.service';
-import { Game } from './types/game.types.old';
+import { GameState, Mark } from './types/game.types';
+import { AuthService } from 'src/auth/providers/auth.service';
+import { Logger, UseFilters } from '@nestjs/common';
 
+@UseFilters(new BaseWsExceptionFilter())
 @WebSocketGateway({ cors: { origin: '*' } })
-export class GameGateway implements OnGatewayConnection {
+export class GameGateway implements OnGatewayInit, OnGatewayConnection {
     @WebSocketServer() server!: Server;
+    private readonly logger = new Logger(GameGateway.name);
 
-    constructor(private readonly gameService: GameService) {}
+    constructor(
+        private readonly gameService: GameService,
+        private readonly authService: AuthService,
+    ) {}
 
+    /** Runs for every handshake, before the socket is connected. */
+    afterInit(server: Server) {
+        server.use(async (socket, next) => {
+            try {
+                socket.data.playerId = await this.authService.verify(
+                    socket.handshake.auth?.token
+                );
+                next();
+            } catch {
+                next(new Error('unauthorized'));
+            }
+        });
+    }
+
+    // async handleConnection(client: Socket) {
+    //     try {
+    //         const sent = client.handshake.auth?.playerId;
+    //         const player = await this.gameService.identify(sent);
+    //         console.log(`PlayerId on handle connection:  ${sent}`)
+
+    //          console.log(
+    //             `socket ${client.id} sent=${sent} resolved=${player.id} ` +
+    //                 `${sent === player.id ? 'existing' : 'REPLACED'} ` +
+    //                 `referer=${client.handshake.headers.referer ?? client.handshake.headers.origin} ` +
+    //                 `ua=${client.handshake.headers['user-agent']?.slice(0, 40)}`,
+    //         );
+
+    //         client.data.playerId = player.id;
+    //         client.emit('identity', { playerId: player.id });
+
+    //         const active = await this.gameService.findActiveGame(player.id);
+    //         if (active) this.enter(client, active.state, active.mark);
+    //     } catch (error) {
+    //         client.disconnect();
+    //     }
+    // }
+
+    /** The player is already authenticated here: put them back into their game, if any. */
     async handleConnection(client: Socket) {
         try {
-            const sent = client.handshake.auth?.playerId;
-            const player = await this.gameService.identify(sent);
-            console.log(`PlayerId on handle connection:  ${sent}`)
-
-             console.log(
-                `socket ${client.id} sent=${sent} resolved=${player.id} ` +
-                    `${sent === player.id ? 'existing' : 'REPLACED'} ` +
-                    `referer=${client.handshake.headers.referer ?? client.handshake.headers.origin} ` +
-                    `ua=${client.handshake.headers['user-agent']?.slice(0, 40)}`,
-            );
-
-            client.data.playerId = player.id;
-            client.emit('identity', { playerId: player.id });
-
-            const active = await this.gameService.findActiveGame(player.id);
+            client.emit('ready', { playerId: client.data.playerId });
+            const active = await this.gameService.findActiveGame(client.data.playerId);
             if (active) this.enter(client, active.state, active.mark);
-        } catch (error) {
-            client.disconnect();
+        } catch (err) {
+            this.logger.error('handleConnection failed', err as Error);
         }
     }
 
     @SubscribeMessage('createGame')
-    handleCreate(@ConnectedSocket() client: Socket) {
-        const { game, mark } = this.gameService.createGame(client.id);
-        client.join(game.id);
-        client.emit('joined', { gameId: game.id, mark });
-        this.broadcast(game);
+    async handleCreate(@ConnectedSocket() client: Socket) {
+        const { state, mark } = await this.gameService.createGame(client.data.playerId);
+        this.enter(client, state, mark);
     }
 
     @SubscribeMessage('joinGame')
-    handleJoin(
+    async handleJoin(
         @ConnectedSocket() client: Socket,
         @MessageBody() body: { gameId: string },
     ) {
-        const { game, mark } = this.gameService.joinGame(body.gameId, client.id);
-        client.join(game.id);
-        client.emit('joined', { gameId: game.id, mark });
-        this.broadcast(game);
+        const { state, mark } = await this.gameService.joinGame(body.gameId, client.data.playerId);
+        console.log(`PlayerId: ${client.data.playerId}`)
+        this.enter(client, state, mark);
     }
 
     @SubscribeMessage('makeMove')
-    handleMove(
+    async handleMove(
         @ConnectedSocket() client: Socket,
         @MessageBody() body: { index: number },
     ) {
-        this.broadcast(this.gameService.makeMove(client.id, body.index));
+        console.log('makeMove body:', JSON.stringify(body), typeof body?.index);
+        const { playerId, code } = this.ctx(client);
+        this.broadcast(await this.gameService.makeMove(code, playerId, body.index));
     }
 
     @SubscribeMessage('rematch')
-    handleRematch(@ConnectedSocket() client: Socket) {
-        this.broadcast(this.gameService.rematch(client.id));
+    async handleRematch(@ConnectedSocket() client: Socket) {
+        const { playerId, code } = this.ctx(client);
+        this.broadcast(await this.gameService.rematch(code, playerId));
     }
 
     @SubscribeMessage('resetScores')
-    handleResetScores(@ConnectedSocket() client: Socket) {
-        this.broadcast(this.gameService.resetScores(client.id));
+    async handleResetScores(@ConnectedSocket() client: Socket) {
+        const { playerId, code } = this.ctx(client);
+        this.broadcast(await this.gameService.resetScores(code, playerId));
     }
 
-    handleDisconnect(client: Socket) {
-        const game = this.gameService.removePlayer(client.id);
-        if (game) this.broadcast(game);
+    @SubscribeMessage('leaveGame')
+        async handleLeave(@ConnectedSocket() client: Socket) {
+        const { playerId, code } = this.ctx(client);
+        const state = await this.gameService.leaveGame(code, playerId);
+        client.leave(code);
+        client.data.gameCode = undefined;
+        client.emit('left');
+        this.broadcast(state);
     }
+
 
     private enter(client: Socket, state: GameState, mark: Mark) {
         if (client.data.gameCode && client.data.gameCode !== state.id) {
