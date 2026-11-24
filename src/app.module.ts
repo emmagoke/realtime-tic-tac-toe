@@ -3,16 +3,18 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {ConfigService} from '@nestjs/config';
+import {ConfigModule, ConfigService} from '@nestjs/config';
 
 import { GameModule } from './game/game.module';
 import { buildDataSourceOptions } from './database/typeorm.config';
 import { PlayersModule } from './players/players.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     SentryModule.forRoot(),
     GameModule,
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
        inject: [ConfigService],
        useFactory: (config: ConfigService) =>  
