@@ -242,6 +242,15 @@ export class GameService {
         return this.toState(game, players)
     }
 
+    private async startRound(m: EntityManager, gameId: string): Promise<Round> {
+        const last = await m.findOne(
+            Round, { where: { gameId }, order: { roundNumber: 'DESC' } }
+        );
+        return m.save(
+            m.create(Round, { gameId, roundNumber: (last?.roundNumber ?? 0) + 1 })
+        );
+    }
+
     private async currentRound(m: EntityManager, gameId: string): Promise<Round> {
         const round = await m.findOne(
             Round, { where: { gameId }, order: { roundNumber: 'DESC' } }
