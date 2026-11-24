@@ -120,8 +120,9 @@ export class GameService {
 
     makeMove(code: string, playerId: string, index: number): Promise<GameState> {
         return this.mutate(
-            code, playerId, (game, me) => {
+            code, playerId, async ({ game, me, m }) => {
                 if (game.status !== 'playing') throw new WsException('Game is not active');
+                console.log(`Current Player Id: ${me.playerId}`)
                 if (me.mark !== game.currentTurn) throw new WsException('Not your turn');
                 if (!Number.isInteger(index) || index < 0 || index > 8) {
                     throw new WsException('Invalid cell');
@@ -129,9 +130,22 @@ export class GameService {
 
                 if (game.board[index] !== '') throw new WsException('Cell already taken');
 
+                const round = await this.currentRound(m, game.id);
+                const moveNumber = game.board.filter((c) => c !== '').length + 1;
+
                 const board = [...game.board];
                 board[index] = me.mark;
                 game.board = board;
+
+                 await m.save(
+                    m.create(Move, {
+                    roundId: round.id,
+                    playerId: me.playerId,
+                    mark: me.mark,
+                    cellIndex: index,
+                    moveNumber,
+                    }),
+                );
 
                 const line = WIN_PATTERNS.find(
                     ([a, b, c]) => board[a] && board[a] === board[b] && board[a] === board[c],
@@ -143,12 +157,26 @@ export class GameService {
                     game.winningLine = line;
                     if (me.mark === 'X') game.scoreX++;
                     else game.scoreO++;
+
+                    round.winnerId = me.playerId;
+                    round.winningLine = line;
+                    round.finishedAt = new Date();
+                    await m.save(round);
                 } else if (board.every((c) => c !== '')) {
+                    // else if (isBoardFull(board))
                     game.status = 'finished';
-                    game.winner = 'tie';
+                    // game.winner = 'tie';
+                    game.isTie = true;
                     game.scoreTie++;
+
+                    round.isTie = true;
+                    round.finishedAt = new Date();
+                    await m.save(round);
                 } else {
+                    console.log(`Current Turn Mark Before: ${game.currentTurn}`)
                     game.currentTurn = me.mark === 'X' ? 'O' : 'X';
+                    console.log(`Current Turn Mark After: ${game.currentTurn}`)
+
                 }
             }
         )
